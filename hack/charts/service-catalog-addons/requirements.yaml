@@ -1,0 +1,3 @@
+dependencies:
+- name: service-binding-usage-controller
+  condition: service-binding-usage-controller.enabled

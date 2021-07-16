@@ -1,0 +1,19 @@
+global:
+  isLocalEnv: false
+  containerRegistry:
+    path: eu.gcr.io/kyma-project
+  istio:
+    gateway:
+      name: kyma-gateway
+  acceptance_tests:
+    dir:
+    version: "bc522023"
+  disableLegacyConnectivity: "false"
+test:
+  acceptance:
+    service_catalog:
+      labels:
+        integration: true
+        after-upgrade: true
+
+      enabled: true

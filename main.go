@@ -6,13 +6,14 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"log"
 	"os"
+	"time"
 )
-
 
 /*
 The application expects environment varialbe "KUBECONFIG" to be set, then uninstalls Service Catalog and removes all SC resources.
- */
+*/
 func main() {
+
 	// read the kubeconfig
 	kcContent, err := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
 	if err != nil {
@@ -24,18 +25,30 @@ func main() {
 		panic(err)
 	}
 
-	log.Println("Removing Service CAtalog release")
-	cleaner.RemoveServiceCatalogRelease()
+	log.Println("Removing Service Catalog release")
+	cleaner.RemoveRelease(ServiceCatalogReleaseName)
+
+	log.Println("Removing service-catalog-addons release")
+	cleaner.RemoveRelease(ServiceCatalogAddonsReleaseName)
+
+	log.Println("Removing Helm Broker release")
+	cleaner.RemoveRelease(HelmBrokerReleaseName)
+	time.Sleep(2 * time.Second)
 
 	log.Println()
 	log.Println("Removing finalizers")
 	err = cleaner.PrepareForRemoval()
-	fmt.Println(err)
+	if err != nil {
+		panic(err)
+	}
+
+	time.Sleep(2 * time.Second)
 
 	log.Println()
 	log.Println("Deleting resources")
 	err = cleaner.RemoveResources()
 	fmt.Println(err)
+
 }
 
 /*

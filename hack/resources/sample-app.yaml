@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample
+spec:
+  selector:
+    matchLabels:
+      app: sample
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sample
+    spec:
+      containers:
+        - name: app
+          image: "alpine:3.13"
+          command:
+            - /bin/sh
+            - -c
+            - |-
+              while :
+                do
+                  sleep 10;
+                  env
+                  echo "************"
+              done

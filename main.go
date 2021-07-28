@@ -13,9 +13,15 @@ import (
 The application expects environment varialbe "KUBECONFIG" to be set, then uninstalls Service Catalog and removes all SC resources.
 */
 func main() {
+	kubeconfigPath := os.Getenv("KUBECONFIG")
+	if kubeconfigPath == "" {
+		kubeconfigPath = "~/.kube/config"
+	}
+
+	log.Printf("Using kubeconfig file: %s", kubeconfigPath)
 
 	// read the kubeconfig
-	kcContent, err := ioutil.ReadFile(os.Getenv("KUBECONFIG"))
+	kcContent, err := ioutil.ReadFile(kubeconfigPath)
 	if err != nil {
 		panic(err)
 	}
@@ -50,18 +56,3 @@ func main() {
 	fmt.Println(err)
 
 }
-
-/*
-1. delete helm release of SC in namespace kyma-system
- - check if SC exists
- - delete the release
-2. find all ServiceBindings
- - remove owner references/finalizers
- - delete all SB
-3. find all (cluster)servicebrokers
- - remove finalizers
- - delete all (c)SB
-4. find all serviceinstances
- - remove finalizers
- - delete them
-*/

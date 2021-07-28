@@ -18,6 +18,6 @@ spec:
         - name: migration
           command:
             - /bin/sh
-            - run
+            - run.sh
           image: {{.Values.image.repository}}:{{.Values.image.tag}}
           imagePullPolicy: Always

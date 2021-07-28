@@ -7,3 +7,7 @@ build-image:
 .PHONY: build-image
 push-image:
 	docker push ${IMG}
+
+.PHONY: build-cleaner
+build-cleaner:
+	go build -o cleaner main.go cleaner.go

@@ -36,4 +36,4 @@ COPY --from=builder /go/bin/sap-btp-service-operator-migration /bin/sap-btp-serv
 COPY --from=builder /go/bin/cleaner /bin/cleaner
 COPY --from=builder /run.sh /bin/run.sh
 
-ENTRYPOINT ["sap-btp-service-operator-migration"]
+ENTRYPOINT ["run.sh"]

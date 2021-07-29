@@ -5,6 +5,8 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	v1 "k8s.io/api/core/v1"
+
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -110,11 +112,6 @@ func (c *Cleaner) RemoveResources() error {
 			Group:   "servicecatalog.kyma-project.io",
 			Version: "v1alpha1",
 		},
-		{
-			Kind:    "ClusterServiceBroker",
-			Group:   "servicecatalog.kyma-project.io",
-			Version: "v1alpha1",
-		},
 	}
 
 	namespaces := &v1.NamespaceList{}
@@ -133,6 +130,17 @@ func (c *Cleaner) RemoveResources() error {
 				return err
 			}
 		}
+	}
+
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Kind:    "ClusterServiceBroker",
+		Group:   "servicecatalog.kyma-project.io",
+		Version: "v1alpha1",
+	})
+	err = c.k8sCli.DeleteAllOf(context.Background(), u, client.InNamespace(""))
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -248,6 +256,24 @@ func (c *Cleaner) PrepareForRemoval() error {
 		err = c.k8sCli.Update(context.Background(), secret)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Cleaner) RemnoveCRDs() error {
+	crdsList := &apiextensions.CustomResourceDefinitionList{}
+
+	err := c.k8sCli.List(context.Background(), crdsList)
+	if err != nil {
+		return err
+	}
+
+	for _, crd := range crdsList.Items {
+		if crd.Spec.Group == "servicecatalog.k8s.io" || crd.Spec.Group == "servicecatalog.kyma-project.io" {
+			log.Println("Removing CRD %s", crd.Name)
+			c.k8sCli.Delete(context.Background(), &crd)
 		}
 	}
 

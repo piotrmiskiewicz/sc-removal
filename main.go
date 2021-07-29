@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"log"
@@ -53,6 +52,16 @@ func main() {
 	log.Println()
 	log.Println("Deleting resources")
 	err = cleaner.RemoveResources()
-	fmt.Println(err)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println("Deleting CRDs")
+	err = cleaner.RemnoveCRDs()
+	if err != nil {
+		panic(err)
+	}
+
+
 
 }

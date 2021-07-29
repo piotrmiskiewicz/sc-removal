@@ -1,4 +1,4 @@
-IMG ?= eu.gcr.io/sap-se-cx-gopher/sap-btp-service-operator-migration:v0.1.0
+IMG ?= eu.gcr.io/sap-se-cx-gopher/sap-btp-service-operator-migration:v0.2.0
 
 .PHONY: build-image
 build-image:

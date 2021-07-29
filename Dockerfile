@@ -29,7 +29,7 @@ COPY deploy/run.sh /run.sh
 RUN CGO_ENABLED=0 go build -o /go/bin/cleaner main.go cleaner.go
 
 # Run image
-FROM gcr.io/distroless/static:latest
+FROM alpine:3.14.0
 
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /go/bin/sap-btp-service-operator-migration /bin/sap-btp-service-operator-migration

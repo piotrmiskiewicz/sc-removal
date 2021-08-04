@@ -33,5 +33,6 @@ COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /go/bin/sap-btp-service-operator-migration /bin/sap-btp-service-operator-migration
 COPY --from=builder /go/bin/cleaner /bin/cleaner
 COPY --from=builder /run.sh /bin/run.sh
+RUN chmod a+x /bin/run.sh
 
 ENTRYPOINT ["run.sh"]

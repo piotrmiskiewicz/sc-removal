@@ -5,6 +5,7 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/rest"
 
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,19 +29,30 @@ const (
 type Cleaner struct {
 	k8sCli            client.Client
 	kubeConfigContent []byte
+	helmClient        helmclient.Client
 }
 
 func NewCleaner(kubeConfigContent []byte) (*Cleaner, error) {
-	kubeconfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigContent)
-	if err != nil {
-		return nil, err
+	var restConfig *rest.Config
+	if len(kubeConfigContent) > 0 {
+		var err error
+		kubeconfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigContent)
+		if err != nil {
+			return nil, err
+		}
+		restConfig, err = kubeconfig.ClientConfig()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		restConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	rc, err := kubeconfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	k8sCli, err := client.New(rc, client.Options{
+	k8sCli, err := client.New(restConfig, client.Options{
 		Scheme: scheme.Scheme,
 	})
 	if err != nil {
@@ -51,22 +63,31 @@ func NewCleaner(kubeConfigContent []byte) (*Cleaner, error) {
 		return nil, err
 	}
 
+	helmClient, err := helmclient.NewClientFromRestConf(&helmclient.RestConfClientOptions{
+		Options: &helmclient.Options{
+			Namespace:        "kyma-system",
+			RepositoryConfig: "",
+			RepositoryCache:  "",
+			Debug:            false,
+			Linting:          false,
+			DebugLog:         nil,
+		},
+		RestConfig: restConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Cleaner{
 		k8sCli:            k8sCli,
 		kubeConfigContent: kubeConfigContent,
+		helmClient:        helmClient,
 	}, nil
 }
 
 func (c *Cleaner) RemoveRelease(releaseName string) error {
-	helmCli, err := helmclient.NewClientFromKubeConf(&helmclient.KubeConfClientOptions{
-		Options: &helmclient.Options{
-			Namespace: "kyma-system",
-		},
-		KubeConfig: c.kubeConfigContent,
-	})
-
 	log.Println("Looking for Service Catalog release...")
-	release, err := helmCli.GetRelease(releaseName)
+	release, err := c.helmClient.GetRelease(releaseName)
 	if err == driver.ErrReleaseNotFound {
 		log.Println("service-catalog release not found, nothing to do")
 		return nil
@@ -77,7 +98,7 @@ func (c *Cleaner) RemoveRelease(releaseName string) error {
 
 	log.Printf("Found %s release in the namespace %s: status %s", release.Name, release.Namespace, release.Info.Status.String())
 	log.Println(" Uninstalling...")
-	err = helmCli.UninstallRelease(&helmclient.ChartSpec{
+	err = c.helmClient.UninstallRelease(&helmclient.ChartSpec{
 		ReleaseName: releaseName,
 		Timeout:     time.Minute,
 		Wait:        true,
@@ -109,8 +130,8 @@ func (c *Cleaner) RemoveResources() error {
 		},
 		{
 			Kind:    "ServiceBroker",
-			Group:   "servicecatalog.kyma-project.io",
-			Version: "v1alpha1",
+			Group:   "servicecatalog.k8s.io",
+			Version: "v1beta1",
 		},
 	}
 
@@ -135,8 +156,8 @@ func (c *Cleaner) RemoveResources() error {
 	u := &unstructured.Unstructured{}
 	u.SetGroupVersionKind(schema.GroupVersionKind{
 		Kind:    "ClusterServiceBroker",
-		Group:   "servicecatalog.kyma-project.io",
-		Version: "v1alpha1",
+		Group:   "servicecatalog.k8s.io",
+		Version: "v1beta1",
 	})
 	err = c.k8sCli.DeleteAllOf(context.Background(), u, client.InNamespace(""))
 	if err != nil {
@@ -272,7 +293,7 @@ func (c *Cleaner) RemnoveCRDs() error {
 
 	for _, crd := range crdsList.Items {
 		if crd.Spec.Group == "servicecatalog.k8s.io" || crd.Spec.Group == "servicecatalog.kyma-project.io" {
-			log.Println("Removing CRD %s", crd.Name)
+			log.Printf("Removing CRD %s", crd.Name)
 			c.k8sCli.Delete(context.Background(), &crd)
 		}
 	}

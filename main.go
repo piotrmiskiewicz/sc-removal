@@ -5,6 +5,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"log"
 	"os"
+	"path"
 	"time"
 )
 
@@ -14,7 +15,11 @@ The application expects environment varialbe "KUBECONFIG" to be set, then uninst
 func main() {
 	kubeconfigPath := os.Getenv("KUBECONFIG")
 	if kubeconfigPath == "" {
-		kubeconfigPath = "~/.kube/config"
+		home, err := os.UserHomeDir()
+		if err != nil {
+			panic(err)
+		}
+		kubeconfigPath = path.Join(home, ".kube/config")
 	}
 
 	log.Printf("Using kubeconfig file: %s", kubeconfigPath)
@@ -22,7 +27,13 @@ func main() {
 	// read the kubeconfig
 	kcContent, err := ioutil.ReadFile(kubeconfigPath)
 	if err != nil {
-		panic(err)
+		if os.IsNotExist(err) {
+			// empty kubeconfig content means - use "in cluster config"
+			log.Println("Kubeconfig does not exists, using in-cluster config")
+			kcContent = []byte{}
+		} else {
+			panic(err)
+		}
 	}
 
 	cleaner, err := NewCleaner(kcContent)
@@ -31,14 +42,23 @@ func main() {
 	}
 
 	log.Println("Removing Service Catalog release")
-	cleaner.RemoveRelease(ServiceCatalogReleaseName)
+	err = cleaner.RemoveRelease(ServiceCatalogReleaseName)
+	if err != nil {
+		panic(err)
+	}
 
 	log.Println("Removing service-catalog-addons release")
 	cleaner.RemoveRelease(ServiceCatalogAddonsReleaseName)
+	if err != nil {
+		panic(err)
+	}
 
 	log.Println("Removing Helm Broker release")
 	cleaner.RemoveRelease(HelmBrokerReleaseName)
-	time.Sleep(2 * time.Second)
+	if err != nil {
+		panic(err)
+	}
+	time.Sleep(10 * time.Second)
 
 	log.Println()
 	log.Println("Removing finalizers")
@@ -47,7 +67,7 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	log.Println()
 	log.Println("Deleting resources")
@@ -56,12 +76,11 @@ func main() {
 		panic(err)
 	}
 
+	time.Sleep(2 * time.Second)
+
 	log.Println("Deleting CRDs")
 	err = cleaner.RemnoveCRDs()
 	if err != nil {
 		panic(err)
 	}
-
-
-
 }

@@ -16,8 +16,5 @@ spec:
       restartPolicy: Never
       containers:
         - name: migration
-          command:
-            - /bin/sh
-            - run.sh
           image: {{.Values.image.repository}}:{{.Values.image.tag}}
           imagePullPolicy: Always

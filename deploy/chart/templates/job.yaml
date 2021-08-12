@@ -16,5 +16,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migration
+# uncomment to test only cleaner
+#          command: ["cleaner"]
           image: {{.Values.image.repository}}:{{.Values.image.tag}}
           imagePullPolicy: Always

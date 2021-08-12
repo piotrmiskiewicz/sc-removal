@@ -86,10 +86,10 @@ func NewCleaner(kubeConfigContent []byte) (*Cleaner, error) {
 }
 
 func (c *Cleaner) RemoveRelease(releaseName string) error {
-	log.Println("Looking for Service Catalog release...")
+	log.Printf("Looking for %s release...", releaseName)
 	release, err := c.helmClient.GetRelease(releaseName)
 	if err == driver.ErrReleaseNotFound {
-		log.Println("service-catalog release not found, nothing to do")
+		log.Printf("%s release not found, nothing to do", releaseName)
 		return nil
 	}
 	if err != nil {
@@ -99,9 +99,11 @@ func (c *Cleaner) RemoveRelease(releaseName string) error {
 	log.Printf("Found %s release in the namespace %s: status %s", release.Name, release.Namespace, release.Info.Status.String())
 	log.Println(" Uninstalling...")
 	err = c.helmClient.UninstallRelease(&helmclient.ChartSpec{
-		ReleaseName: releaseName,
-		Timeout:     time.Minute,
-		Wait:        true,
+		ReleaseName:  releaseName,
+		DisableHooks: true,
+		Wait:         true,
+		Timeout:      time.Minute,
+		Force:        true,
 	})
 	if err != nil {
 		return err
@@ -119,6 +121,11 @@ func (c *Cleaner) RemoveResources() error {
 			Version: "v1alpha1",
 		},
 		{
+			Kind:    "UsageKind",
+			Group:   "servicecatalog.kyma-project.io",
+			Version: "v1alpha1",
+		},
+		{
 			Kind:    "ServiceBinding",
 			Group:   "servicecatalog.k8s.io",
 			Version: "v1beta1",
@@ -132,6 +139,16 @@ func (c *Cleaner) RemoveResources() error {
 			Kind:    "ServiceBroker",
 			Group:   "servicecatalog.k8s.io",
 			Version: "v1beta1",
+		},
+		{
+			Kind:    "AddonsConfiguration",
+			Group:   "addons.kyma-project.io",
+			Version: "v1alpha1",
+		},
+		{
+			Kind:    "ClusterAddonsConfiguration",
+			Group:   "addons.kyma-project.io",
+			Version: "v1alpha1",
 		},
 	}
 
@@ -216,6 +233,11 @@ func (c *Cleaner) PrepareForRemoval() error {
 			Kind:    "ClusterServiceBrokerList",
 			Version: "v1beta1",
 		},
+		{
+			Kind:    "UsageKind",
+			Group:   "servicecatalog.kyma-project.io",
+			Version: "v1alpha1",
+		},
 	}
 
 	for _, gvk := range gvkList {
@@ -294,7 +316,10 @@ func (c *Cleaner) RemnoveCRDs() error {
 	for _, crd := range crdsList.Items {
 		if crd.Spec.Group == "servicecatalog.k8s.io" || crd.Spec.Group == "servicecatalog.kyma-project.io" {
 			log.Printf("Removing CRD %s", crd.Name)
-			c.k8sCli.Delete(context.Background(), &crd)
+			err := c.k8sCli.Delete(context.Background(), &crd)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

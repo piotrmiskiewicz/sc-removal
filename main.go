@@ -48,13 +48,13 @@ func main() {
 	}
 
 	log.Println("Removing service-catalog-addons release")
-	cleaner.RemoveRelease(ServiceCatalogAddonsReleaseName)
+	err = cleaner.RemoveRelease(ServiceCatalogAddonsReleaseName)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Println("Removing Helm Broker release")
-	cleaner.RemoveRelease(HelmBrokerReleaseName)
+	err = cleaner.RemoveRelease(HelmBrokerReleaseName)
 	if err != nil {
 		panic(err)
 	}

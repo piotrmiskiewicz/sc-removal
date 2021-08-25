@@ -203,6 +203,37 @@ func (c *Cleaner) removeFinalizers(gvk schema.GroupVersionKind, ns string) error
 	return nil
 }
 
+func (c *Cleaner) PrepareSBUForRemoval() error {
+	namespaces := &v1.NamespaceList{}
+	err := c.k8sCli.List(context.Background(), namespaces)
+	if err != nil {
+		return err
+	}
+
+	for _, ns := range namespaces.Items {
+		ul := &unstructured.UnstructuredList{}
+		ul.SetGroupVersionKind(schema.GroupVersionKind{
+			Kind:    "ServiceBindingUsage",
+			Group:   "servicecatalog.kyma-project.io",
+			Version: "v1alpha1",
+		})
+		err := c.k8sCli.List(context.Background(), ul, client.InNamespace(ns.Name))
+		if err != nil {
+			return err
+		}
+
+		for _, sbu := range ul.Items {
+			log.Printf("Removing owner reference from SBU %s/%s", sbu.GetNamespace(), sbu.GetName())
+			sbu.SetOwnerReferences([]metav1.OwnerReference{})
+			err := c.k8sCli.Update(context.Background(), &sbu)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (c *Cleaner) PrepareForRemoval() error {
 	// listing
 
@@ -243,28 +274,6 @@ func (c *Cleaner) PrepareForRemoval() error {
 	for _, gvk := range gvkList {
 		for _, ns := range namespaces.Items {
 			err := c.removeFinalizers(gvk, ns.Name)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	for _, ns := range namespaces.Items {
-		ul := &unstructured.UnstructuredList{}
-		ul.SetGroupVersionKind(schema.GroupVersionKind{
-			Kind:    "ServiceBindingUsage",
-			Group:   "servicecatalog.kyma-project.io",
-			Version: "v1alpha1",
-		})
-		err := c.k8sCli.List(context.Background(), ul, client.InNamespace(ns.Name))
-		if err != nil {
-			return err
-		}
-
-		for _, sbu := range ul.Items {
-			log.Printf("Removing owner reference from SBU %s/%s", sbu.GetNamespace(), sbu.GetName())
-			sbu.SetOwnerReferences([]metav1.OwnerReference{})
-			err := c.k8sCli.Update(context.Background(), &sbu)
 			if err != nil {
 				return err
 			}

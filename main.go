@@ -9,10 +9,16 @@ import (
 	"time"
 )
 
+const CommandSBUPrepare = "sbu-prepare"
+const CommandFinalClean = "final-clean"
 /*
 The application expects environment varialbe "KUBECONFIG" to be set, then uninstalls Service Catalog and removes all SC resources.
 */
 func main() {
+	command := CommandFinalClean
+	if len(os.Args) > 1 {
+		command = os.Args[1]
+	}
 	kubeconfigPath := os.Getenv("KUBECONFIG")
 	if kubeconfigPath == "" {
 		home, err := os.UserHomeDir()
@@ -41,46 +47,60 @@ func main() {
 		panic(err)
 	}
 
-	log.Println("Removing Service Catalog release")
-	err = cleaner.RemoveRelease(ServiceCatalogReleaseName)
-	if err != nil {
-		panic(err)
+	if command == CommandSBUPrepare {
+		log.Println("Removing service-catalog-addons release")
+		err = cleaner.RemoveRelease(ServiceCatalogAddonsReleaseName)
+		if err != nil {
+			panic(err)
+		}
+
+		log.Println("Removing finalizers and ownerreferences from SBU")
+		err = cleaner.PrepareSBUForRemoval()
+		if err != nil {
+			panic(err)
+		}
+
+		return
 	}
 
-	log.Println("Removing service-catalog-addons release")
-	err = cleaner.RemoveRelease(ServiceCatalogAddonsReleaseName)
-	if err != nil {
-		panic(err)
+	if command == CommandFinalClean {
+		log.Println("Removing Service Catalog release")
+		err = cleaner.RemoveRelease(ServiceCatalogReleaseName)
+		if err != nil {
+			panic(err)
+		}
+
+		log.Println("Removing Helm Broker release")
+		err = cleaner.RemoveRelease(HelmBrokerReleaseName)
+		if err != nil {
+			panic(err)
+		}
+
+		time.Sleep(10 * time.Second)
+		log.Println("Removing finalizers")
+		err = cleaner.PrepareForRemoval()
+		if err != nil {
+			panic(err)
+		}
+
+		time.Sleep(4 * time.Second)
+
+		log.Println()
+		log.Println("Deleting resources")
+		if command == CommandFinalClean {
+			err = cleaner.RemoveResources()
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		log.Println("Deleting CRDs")
+		err = cleaner.RemnoveCRDs()
+		if err != nil {
+			panic(err)
+		}
+
+		return
 	}
 
-	log.Println("Removing Helm Broker release")
-	err = cleaner.RemoveRelease(HelmBrokerReleaseName)
-	if err != nil {
-		panic(err)
-	}
-	time.Sleep(10 * time.Second)
-
-	log.Println()
-	log.Println("Removing finalizers")
-	err = cleaner.PrepareForRemoval()
-	if err != nil {
-		panic(err)
-	}
-
-	time.Sleep(4 * time.Second)
-
-	log.Println()
-	log.Println("Deleting resources")
-	err = cleaner.RemoveResources()
-	if err != nil {
-		panic(err)
-	}
-
-	time.Sleep(2 * time.Second)
-
-	log.Println("Deleting CRDs")
-	err = cleaner.RemnoveCRDs()
-	if err != nil {
-		panic(err)
-	}
 }

@@ -7,4 +7,4 @@ cleaner sbu-prepare
 
 sap-btp-service-operator-migration run
 
-cleaner final-cleaner
+cleaner final-clean
